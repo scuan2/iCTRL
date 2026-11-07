@@ -1,0 +1,47 @@
+name: Phone Control IPA
+
+on:
+  push:
+    branches: [phone-control-widget]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: xcode-27
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 27.2
+        run: |
+          sudo xcode-select -s /Applications/Xcode_27.2.app/Contents/Developer
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build unsigned release IPAs
+        run: make ipa UNSIGNED=1
+
+      - name: Verify control extension is embedded
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/ictrl-verify
+          mkdir -p /tmp/ictrl-verify
+          unzip -q release/iCTRL.ipa -d /tmp/ictrl-verify
+          test -d /tmp/ictrl-verify/Payload/iCTRL.app/PlugIns/iCTRLControl.appex
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
+            /tmp/ictrl-verify/Payload/iCTRL.app/PlugIns/iCTRLControl.appex/Info.plist
+          codesign -v --deep --strict /tmp/ictrl-verify/Payload/iCTRL.app
+
+      - name: Upload IPAs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ictrl-phone-control-ipas
+          path: |
+            release/iCTRL.ipa
+            release/iCTRLUITests-Runner.ipa
+          if-no-files-found: error
+
