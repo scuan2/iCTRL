@@ -3,16 +3,14 @@ import Darwin
 import SwiftUI
 import WidgetKit
 
-@available(iOSApplicationExtension 27.0, *)
 struct DevVPNConfigurationIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Dev VPN"
     static var description = IntentDescription("Choose the Dev VPN shortcut this widget should run.")
 
     @Parameter(title: "Action")
-    var shortcut: SystemShortcut
+    var shortcut: SystemShortcut?
 }
 
-@available(iOSApplicationExtension 27.0, *)
 private enum DevVPNState {
     /// LocalDevVPN uses a point-to-point utun interface in the 10.7.x.x range.
     /// Match both the interface family and address range so ordinary system or
@@ -43,14 +41,12 @@ private enum DevVPNState {
     }
 }
 
-@available(iOSApplicationExtension 27.0, *)
 struct DevVPNEntry: TimelineEntry {
     let date: Date
     let connected: Bool
     let configuration: DevVPNConfigurationIntent
 }
 
-@available(iOSApplicationExtension 27.0, *)
 struct DevVPNProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> DevVPNEntry {
         DevVPNEntry(date: .now, connected: false, configuration: DevVPNConfigurationIntent())
@@ -66,7 +62,6 @@ struct DevVPNProvider: AppIntentTimelineProvider {
     }
 }
 
-@available(iOSApplicationExtension 27.0, *)
 struct DevVPNWidgetView: View {
     let entry: DevVPNEntry
 
@@ -95,32 +90,42 @@ struct DevVPNWidgetView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Button(intent: RunSystemShortcutIntent(shortcut: entry.configuration.shortcut)) {
-                HStack(spacing: 10) {
-                    Text(entry.connected ? "On" : "Off")
+            if let shortcut = entry.configuration.shortcut {
+                Button(intent: RunSystemShortcutIntent(shortcut: shortcut)) {
+                    HStack(spacing: 10) {
+                        Text(entry.connected ? "On" : "Off")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        ZStack(alignment: entry.connected ? .trailing : .leading) {
+                            Capsule()
+                                .fill(entry.connected ? Color.green : Color.secondary.opacity(0.28))
+                                .frame(width: 50, height: 30)
+                            Circle()
+                                .fill(.white)
+                                .frame(width: 26, height: 26)
+                                .padding(2)
+                                .shadow(radius: 1)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack {
+                    Text("Edit Widget")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    ZStack(alignment: entry.connected ? .trailing : .leading) {
-                        Capsule()
-                            .fill(entry.connected ? Color.green : Color.secondary.opacity(0.28))
-                            .frame(width: 50, height: 30)
-                        Circle()
-                            .fill(.white)
-                            .frame(width: 26, height: 26)
-                            .padding(2)
-                            .shadow(radius: 1)
-                    }
+                    Image(systemName: "slider.horizontal.3")
+                        .foregroundStyle(.secondary)
                 }
-                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
         }
         .containerBackground(.fill.tertiary, for: .widget)
     }
 }
 
-@available(iOSApplicationExtension 27.0, *)
 struct DevVPNWidget: Widget {
     static let kind = "com.openminis.ictrl.dev-vpn-widget"
 
