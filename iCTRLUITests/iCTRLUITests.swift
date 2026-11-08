@@ -520,9 +520,15 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         runLoop.add(safetyTimer, forMode: .default)
 
         // Keep the gray XCTest idle curtain from returning while Phone Control
-        // is on by tapping the *actual* iCTRL Live Activity control owned by
-        // SpringBoard. Do not fall back to a raw coordinate: a coordinate over
-        // the hardware cutout can still be delivered to the foreground app.
+        // is on. Query the *actual* SpringBoard Dynamic Island container, then
+        // synthesize a short real touch-drag wholly inside its current frame.
+        //
+        // Important: do not use XCUIElement.tap() here. That is a high-level
+        // XCTest activation and does not reset the automation-idle curtain; it
+        // also activates the Live Activity and opens iCTRL. The low-level
+        // XCPointerEventPath is the same event family as the proven bottom-edge
+        // pulse, but its hit test now lands on SpringBoard's real Island surface
+        // instead of app content underneath the hardware cutout.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
         keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
@@ -534,23 +540,55 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
                 let springBoard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-                let heartbeat = springBoard.descendants(matching: .any)
-                    .matching(identifier: "ictrl-heartbeat")
+                let island = springBoard.descendants(matching: .any)
+                    .matching(identifier: "jindo-container-view:1")
                     .firstMatch
-                if heartbeat.exists && heartbeat.isHittable {
-                    heartbeat.tap()
+
+                guard island.exists else {
+                    if !loggedMissingActivityControl {
+                        loggedMissingActivityControl = true
+                        Self.logBuffer.append("💓 Dynamic Island container not found — no fallback touch sent")
+                    }
+                    return
+                }
+
+                let frame = island.frame
+                guard frame.width >= 32, frame.height >= 20,
+                      frame.minX >= 0, frame.minY >= 0 else {
+                    if !loggedMissingActivityControl {
+                        loggedMissingActivityControl = true
+                        Self.logBuffer.append("💓 Dynamic Island container frame invalid — no fallback touch sent")
+                    }
+                    return
+                }
+
+                // Move far enough that the interaction is not recognized as a
+                // tap/activation, but stay comfortably inside the Island.
+                let y = frame.midY
+                let halfTravel = min(8.0, max(4.0, frame.width * 0.08))
+                let start = CGPoint(x: frame.midX - halfTravel, y: y)
+                let end = CGPoint(x: frame.midX + halfTravel, y: y)
+
+                let record = XCSynthesizedEventRecord(name: "Automation Curtain Island Pulse")
+                let path = XCPointerEventPath(forTouchAt: start, offset: 0.0)
+                path.pressDown(atOffset: 0.0)
+                path.move(to: end, atOffset: 0.08)
+                path.liftUp(atOffset: 0.12)
+                record.add(path)
+                do {
+                    try record.synthesize()
+                    loggedMissingActivityControl = false
                     if !loggedFirstActivityPulse {
                         loggedFirstActivityPulse = true
-                        Self.logBuffer.append("💓 first Dynamic Island heartbeat delivered")
+                        Self.logBuffer.append("💓 first low-level Dynamic Island swipe delivered at frame \(frame)")
                     }
-                } else if !loggedMissingActivityControl {
-                    loggedMissingActivityControl = true
-                    Self.logBuffer.append("💓 Dynamic Island heartbeat control not found/hittable — no fallback touch sent")
+                } catch {
+                    Self.logBuffer.append("💓 Dynamic Island swipe failed — \(error.localizedDescription)")
                 }
             }
         }
         keepAwakeTimer.resume()
-        Self.logBuffer.append("💓 activity pulse active — SpringBoard Live Activity control every 2s while unlocked")
+        Self.logBuffer.append("💓 activity pulse active — low-level swipe inside SpringBoard Dynamic Island every 2s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)
