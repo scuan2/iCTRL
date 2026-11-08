@@ -520,19 +520,24 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         runLoop.add(safetyTimer, forMode: .default)
 
         // Keep an intentionally-unlocked phone awake while Phone Control is on.
-        // F13 is counted as user activity by iOS but has no visible action. Three
-        // seconds stays comfortably ahead of the ~5 s idle dim observed on iOS
-        // 27.2. A deliberate side-button lock always wins: no event is sent while
-        // SpringBoard reports the device locked, and beats resume after unlock.
-        let keepAwakeTimer = Timer(timeInterval: 3.0, repeats: true) { timer in
-            let lockState = LockStateMonitor.shared()
-            guard !lockState.isLocked else { return }
-            if let error = lockState.resetIdleTimer() {
-                Self.logBuffer.append("☀️ keep-awake disabled — \(error)")
-                timer.invalidate()
+        // The runner backgrounds itself above, so this must NOT depend on a
+        // UIKit/Main RunLoop timer. Use a dispatch timer like the proven iOS 27
+        // keep-awake implementation, then hop onto main only for XCTest's device
+        // event channel. A deliberate side-button lock always wins.
+        let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
+        let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
+        keepAwakeTimer.schedule(deadline: .now(), repeating: 3.0, leeway: .milliseconds(200))
+        keepAwakeTimer.setEventHandler {
+            guard !LockStateMonitor.shared().isLocked else { return }
+            DispatchQueue.main.async {
+                let lockState = LockStateMonitor.shared()
+                guard !lockState.isLocked else { return }
+                if let error = lockState.resetIdleTimer() {
+                    Self.logBuffer.append("☀️ keep-awake beat failed — \(error)")
+                }
             }
         }
-        runLoop.add(keepAwakeTimer, forMode: .default)
+        keepAwakeTimer.resume()
         Self.logBuffer.append("☀️ keep-awake active — F13 every 3s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
@@ -545,7 +550,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             }
         }
         safetyTimer.invalidate()
-        keepAwakeTimer.invalidate()
+        keepAwakeTimer.cancel()
         // Only reached when keepRunning was set false (stop_server / notification /
         // config restart). If we ever get here unexpectedly, the log shows it.
         Self.logBuffer.append("🔁 run loop exited (keepRunning=false)")
