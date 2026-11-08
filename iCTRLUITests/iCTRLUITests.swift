@@ -521,8 +521,8 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
 
         // Keep the gray XCTest idle curtain from returning while Phone Control
         // is on. A real touch clears it. Reuse the same XCTest touch synthesizer
-        // as normal iCTRL taps, but tap the system-owned home-indicator edge so
-        // the foreground app has no normal control to activate.
+        // as normal iCTRL taps, but place the pulse inside the top-center system
+        // aperture / Dynamic Island region instead of app content.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
         keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
@@ -533,7 +533,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
                 let bounds = UIScreen.main.bounds
-                let point = CGPoint(x: bounds.midX, y: max(0, bounds.maxY - 1.0))
+                let point = CGPoint(x: bounds.midX, y: min(max(30.0, bounds.minY), bounds.maxY))
                 let record = XCSynthesizedEventRecord(name: "Automation Curtain Pulse")
                 let path = XCPointerEventPath(forTouchAt: point, offset: 0.0)
                 path.pressDown(atOffset: 0.0)
@@ -543,7 +543,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
                     try record.synthesize()
                     if !loggedFirstActivityPulse {
                         loggedFirstActivityPulse = true
-                        Self.logBuffer.append("👆 first home-indicator activity pulse delivered")
+                        Self.logBuffer.append("👆 first system-aperture activity pulse delivered")
                     }
                 } catch {
                     Self.logBuffer.append("👆 activity pulse failed — \(error.localizedDescription)")
@@ -551,7 +551,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             }
         }
         keepAwakeTimer.resume()
-        Self.logBuffer.append("👆 activity pulse active — home-indicator XCTest tap every 2s while unlocked")
+        Self.logBuffer.append("👆 activity pulse active — system-aperture XCTest tap every 2s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)
