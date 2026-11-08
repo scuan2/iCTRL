@@ -1,5 +1,6 @@
 import AppIntents
 import Foundation
+import WidgetKit
 
 #if ICTRL_MAIN_APP
 import UIKit
@@ -49,6 +50,14 @@ struct SetPhoneControlIntent: SetValueIntent {
     func perform() async throws -> some IntentResult {
 #if ICTRL_MAIN_APP
         _ = await setRunnerRunning(value)
+        // Control Center and the Home Screen widget cache their provider value.
+        // Refresh both immediately after the user changes the runner state so
+        // the next tap is based on reality rather than the previous ON/OFF
+        // value.
+        if #available(iOS 18.0, *) {
+            ControlCenter.shared.reloadControls(ofKind: "com.openminis.ictrl.phone-control")
+        }
+        WidgetCenter.shared.reloadTimelines(ofKind: "com.openminis.ictrl.phone-control-widget")
 #endif
         return .result()
     }
