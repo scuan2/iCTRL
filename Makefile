@@ -164,6 +164,15 @@ ipa: build
 	/usr/libexec/PlistBuddy -c "Delete :NSBonjourServices" "$$PLIST" 2>/dev/null || true; \
 	/usr/libexec/PlistBuddy -c "Add :NSBonjourServices array" "$$PLIST"; \
 	/usr/libexec/PlistBuddy -c "Add :NSBonjourServices:0 string _ictrl._tcp" "$$PLIST"
+	@echo "🏷  Syncing Runner version from the test bundle..."
+	@set -e; \
+	RUNNER_PLIST="$(BUILD_DIR)/$(RUNNER_APP)/Info.plist"; \
+	XCTEST_PLIST="$(BUILD_DIR)/$(RUNNER_APP)/PlugIns/$(XCTEST_BUNDLE)/Info.plist"; \
+	SHORT_VERSION="$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$$XCTEST_PLIST")"; \
+	BUILD_VERSION="$$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$$XCTEST_PLIST")"; \
+	/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $$SHORT_VERSION" "$$RUNNER_PLIST"; \
+	/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $$BUILD_VERSION" "$$RUNNER_PLIST"; \
+	echo "   Runner: $$SHORT_VERSION ($$BUILD_VERSION)"
 	@echo "🏷  Aligning .xctest bundle id with the Runner..."
 	@# Rewrite the embedded .xctest CFBundleIdentifier to match the Runner app id,
 	@# so the plugin and its host share one identifier. Done BEFORE the re-sign so
