@@ -525,7 +525,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         // 27.2. A deliberate side-button lock always wins: no event is sent while
         // SpringBoard reports the device locked, and beats resume after unlock.
         let keepAwakeTimer = Timer(timeInterval: 3.0, repeats: true) { timer in
-            let lockState = LockStateMonitor.sharedMonitor()
+            let lockState = LockStateMonitor.shared()
             guard !lockState.isLocked else { return }
             if let error = lockState.resetIdleTimer() {
                 Self.logBuffer.append("☀️ keep-awake disabled — \(error)")
