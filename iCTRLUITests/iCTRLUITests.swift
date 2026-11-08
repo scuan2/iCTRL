@@ -519,26 +519,39 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         }
         runLoop.add(safetyTimer, forMode: .default)
 
-        // Keep an intentionally-unlocked phone awake while Phone Control is on.
-        // The runner backgrounds itself above, so this must NOT depend on a
-        // UIKit/Main RunLoop timer. Use a dispatch timer like the proven iOS 27
-        // keep-awake implementation, then hop onto main only for XCTest's device
-        // event channel. A deliberate side-button lock always wins.
+        // Keep the gray XCTest idle curtain from returning while Phone Control
+        // is on. A real touch clears it. Reuse the same XCTest touch synthesizer
+        // as normal iCTRL taps, but tap the system-owned home-indicator edge so
+        // the foreground app has no normal control to activate.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
-        keepAwakeTimer.schedule(deadline: .now(), repeating: 3.0, leeway: .milliseconds(200))
+        keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
+        var loggedFirstActivityPulse = false
         keepAwakeTimer.setEventHandler {
             guard !LockStateMonitor.shared().isLocked else { return }
             DispatchQueue.main.async {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
-                if let error = lockState.resetIdleTimer() {
-                    Self.logBuffer.append("☀️ keep-awake beat failed — \(error)")
+                let bounds = UIScreen.main.bounds
+                let point = CGPoint(x: bounds.midX, y: max(0, bounds.maxY - 1.0))
+                let record = XCSynthesizedEventRecord(name: "Automation Curtain Pulse")
+                let path = XCPointerEventPath(forTouchAt: point, offset: 0.0)
+                path.pressDown(atOffset: 0.0)
+                path.liftUp(atOffset: 0.04)
+                record.add(path)
+                do {
+                    try record.synthesize()
+                    if !loggedFirstActivityPulse {
+                        loggedFirstActivityPulse = true
+                        Self.logBuffer.append("👆 first home-indicator activity pulse delivered")
+                    }
+                } catch {
+                    Self.logBuffer.append("👆 activity pulse failed — \(error.localizedDescription)")
                 }
             }
         }
         keepAwakeTimer.resume()
-        Self.logBuffer.append("☀️ keep-awake active — F13 every 3s while unlocked")
+        Self.logBuffer.append("👆 activity pulse active — home-indicator XCTest tap every 2s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)
@@ -556,12 +569,12 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         Self.logBuffer.append("🔁 run loop exited (keepRunning=false)")
     }
 
-    /// Step out of the foreground via -[UIApplication suspend].
+    /// Hand the foreground back to SpringBoard without suspending this process.
     ///
-    /// `suspend` is the only one of the four probed selectors that iOS 26 still
-    /// has, and it is what finally worked — pressing Home through XCUIDevice or
-    /// IOHID reported success while doing nothing, the silent-confirmation
-    /// failure Appium documented in WDA PR #1171.
+    /// The old implementation called private `-[UIApplication suspend]`. That
+    /// got the empty runner shell off-screen, but it also froze this process
+    /// whenever no external RPC was waking it. The runner must stay executing so
+    /// the periodic inert activity pulse can fire on its own.
     private func backgroundSelfNow() {
         // Only once XCTest is genuinely usable.
         //
@@ -576,19 +589,20 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             return
         }
 
-        let app = UIApplication.shared
-        let sel = NSSelectorFromString("suspend")
-        guard app.responds(to: sel) else {
-            Self.logBuffer.append("🏠 auto-background unavailable — no suspend selector")
-            return
-        }
         // Wrapped: a throw inside XCTest aborts the runner, and failing to
         // background must never be worse than staying in front.
+        let springBoard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let raised = ObjCException.catching {
-            _ = app.perform(sel)
+            springBoard.activate()
         }
-        Self.logBuffer.append(raised.map { "🏠 auto-background raised: \($0)" }
-                              ?? "🏠 auto-backgrounded via -[UIApplication suspend]")
+        if let raised {
+            Self.logBuffer.append("🏠 SpringBoard activation raised: \(raised)")
+            return
+        }
+
+        Self.logBuffer.append(springBoard.state == .runningForeground
+                              ? "🏠 auto-backgrounded via SpringBoard activation (runner remains executing)"
+                              : "🏠 SpringBoard activation returned but did not reach foreground")
     }
 
     /// Block until XCTest can actually drive the UI, or give up.
