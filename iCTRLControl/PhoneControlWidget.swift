@@ -1,6 +1,7 @@
 import AppIntents
 import SwiftUI
 import WidgetKit
+import iCTRLIntents
 
 @available(iOSApplicationExtension 27.0, *)
 struct PhoneControlControl: ControlWidget {
@@ -90,13 +91,18 @@ struct PhoneControlWidgetView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Toggle(isOn: entry.running, intent: SetPhoneControlIntent()) {
-                Text(entry.running ? "Turn Off" : "Turn On")
-                    .frame(maxWidth: .infinity)
+            HStack(spacing: 10) {
+                Text(entry.running ? "On" : "Off")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Toggle(isOn: entry.running, intent: SetPhoneControlIntent()) {
+                    Text("Phone Control")
+                }
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .tint(.green)
             }
-            .toggleStyle(.button)
-            .buttonStyle(.borderedProminent)
-            .tint(entry.running ? .green : .accentColor)
         }
         .containerBackground(.fill.tertiary, for: .widget)
     }
@@ -121,6 +127,7 @@ struct PhoneControlWidget: Widget {
 struct PhoneControlBundle: WidgetBundle {
     var body: some Widget {
         PhoneControlWidget()
+        DevVPNWidget()
         PhoneControlControl()
     }
 }

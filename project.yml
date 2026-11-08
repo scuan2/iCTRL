@@ -25,10 +25,6 @@ targets:
       # Shared with the runner: one string table for both processes, so a phrase
       # the user sees in a notification matches the one in the app.
       - path: iCTRLUITests/Localized.swift
-      # iOS 27 WidgetKit controls can force this shared intent to execute in
-      # the main app process, where the existing RunnerClient credential lives.
-      - path: iCTRLControl/PhoneControlIntent.swift
-
     dependencies:
       # idevice (MIT) â€” the lockdown/RSD/image-mounter client that does the
       # actual DDI mount. Fetched by Scripts/fetch-idevice.sh rather than
@@ -36,6 +32,8 @@ targets:
       # in the repo tree, so SPM cannot resolve it by URL.
       - framework: Frameworks/IDevice.xcframework
         embed: false
+      - target: iCTRLIntents
+        embed: true
       - target: iCTRLControl
         embed: true
     settings:
@@ -45,7 +43,6 @@ targets:
         MARKETING_VERSION: "1.0.0"
         CURRENT_PROJECT_VERSION: 1
         CODE_SIGN_STYLE: Automatic
-        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ICTRL_MAIN_APP"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
@@ -59,12 +56,29 @@ targets:
         # would break the Start button and the StikDebug shortcut.
         INFOPLIST_FILE: iCTRLApp/Info.plist
 
+  iCTRLIntents:
+    type: framework
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: iCTRLIntents
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(ICTRL_BUNDLE_PREFIX).ictrl.intents"
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+
   iCTRLControl:
     type: app-extension
     platform: iOS
     deploymentTarget: "27.0"
     sources:
       - path: iCTRLControl
+    dependencies:
+      - target: iCTRLIntents
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: "$(ICTRL_BUNDLE_PREFIX).ictrl.control"

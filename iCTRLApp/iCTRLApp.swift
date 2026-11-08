@@ -1,4 +1,6 @@
+import AppIntents
 import SwiftUI
+import iCTRLIntents
 
 @main
 struct iCTRLApp: App {
@@ -17,6 +19,11 @@ struct iCTRLApp: App {
     }
 
     init() {
+        AppDependencyManager.shared.add {
+            PhoneControlService { desired in
+                await PhoneControlController.setRunning(desired)
+            }
+        }
         // Touch the logger during init so every run produces a file, even one
         // that crashes before the user does anything.
         ictrlLog("App launched")
