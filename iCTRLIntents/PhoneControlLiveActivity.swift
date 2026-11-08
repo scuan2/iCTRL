@@ -16,7 +16,7 @@ public struct PhoneControlActivityAttributes: ActivityAttributes {
 /// Intentionally inert. Its only purpose is to give the Dynamic Island a real,
 /// system-owned interactive control that XCTest can target without delivering a
 /// touch to the foreground application underneath the hardware cutout.
-@available(iOS 17.0, *)
+@available(iOS 26.0, *)
 public struct PhoneControlHeartbeatIntent: AppIntent {
     public static var title: LocalizedStringResource = "Phone Control Heartbeat"
     public static var description = IntentDescription("Marks Phone Control as active without changing app state.")

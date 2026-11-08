@@ -130,7 +130,7 @@ struct PhoneControlWidget: Widget {
     }
 }
 
-@available(iOSApplicationExtension 17.0, *)
+@available(iOSApplicationExtension 26.0, *)
 struct PhoneControlLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: PhoneControlActivityAttributes.self) { _ in
