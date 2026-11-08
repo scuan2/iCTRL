@@ -9,7 +9,11 @@ enum PhoneControlController {
         if desired {
             guard DeveloperDiskImage.status().isMounted else { return false }
             guard await openRunner() else { return false }
-            return await PhoneControlRunnerState.wait(for: true, attempts: 40)
+            // Starting XCTest can require an iOS automation-password prompt.
+            // Give the user enough time to approve it; once the runner is
+            // genuinely reachable, the intent refreshes the widget from the
+            // real state rather than guessing.
+            return await PhoneControlRunnerState.wait(for: true, attempts: 240)
         }
 
         let client = RunnerClient(port: 8200)
