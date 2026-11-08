@@ -1,6 +1,7 @@
 #import "LockStateMonitor.h"
 #import <notify.h>
 #import <XCTest/XCTest.h>
+#import <objc/message.h>
 
 @interface XCUIDevice (FBPrivate)
 - (void)pressLockButton;
@@ -80,6 +81,35 @@
                     userInfo:@{NSLocalizedDescriptionKey: @"Unlock timeout (passcode may be required)"}];
     }
     return NO;
+}
+
+- (nullable NSString *)resetIdleTimer {
+    // F13 is a harmless keyboard HID event: iOS counts it as user activity,
+    // resetting the display idle timer, but assigns it no visible action.
+    static const unsigned int kKeyboardPage = 0x07;
+    static const unsigned int kF13 = 0x68;
+
+    Class eventClass = NSClassFromString(@"XCDeviceEvent");
+    SEL makeEvent = NSSelectorFromString(@"deviceEventWithPage:usage:duration:");
+    SEL performEvent = NSSelectorFromString(@"performDeviceEvent:error:");
+    if (eventClass == Nil || ![eventClass respondsToSelector:makeEvent]
+        || ![[XCUIDevice sharedDevice] respondsToSelector:performEvent]) {
+        return @"XCDeviceEvent keep-awake is unavailable";
+    }
+
+    @try {
+        id event = ((id (*)(id, SEL, unsigned int, unsigned int, double))objc_msgSend)(
+            eventClass, makeEvent, kKeyboardPage, kF13, 0.005);
+        if (event == nil) return @"Could not create F13 keep-awake event";
+
+        NSError *eventError = nil;
+        BOOL ok = ((BOOL (*)(id, SEL, id, NSError **))objc_msgSend)(
+            [XCUIDevice sharedDevice], performEvent, event, &eventError);
+        if (ok) return nil;
+        return eventError.localizedDescription ?: @"F13 keep-awake event failed";
+    } @catch (NSException *exception) {
+        return [NSString stringWithFormat:@"%@: %@", exception.name, exception.reason ?: @""];
+    }
 }
 
 - (void)dealloc {

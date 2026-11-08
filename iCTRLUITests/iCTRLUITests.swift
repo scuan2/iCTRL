@@ -518,6 +518,23 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             self?.handlePendingCallbackIfAny()
         }
         runLoop.add(safetyTimer, forMode: .default)
+
+        // Keep an intentionally-unlocked phone awake while Phone Control is on.
+        // F13 is counted as user activity by iOS but has no visible action. Three
+        // seconds stays comfortably ahead of the ~5 s idle dim observed on iOS
+        // 27.2. A deliberate side-button lock always wins: no event is sent while
+        // SpringBoard reports the device locked, and beats resume after unlock.
+        let keepAwakeTimer = Timer(timeInterval: 3.0, repeats: true) { timer in
+            let lockState = LockStateMonitor.sharedMonitor()
+            guard !lockState.isLocked else { return }
+            if let error = lockState.resetIdleTimer() {
+                Self.logBuffer.append("☀️ keep-awake disabled — \(error)")
+                timer.invalidate()
+            }
+        }
+        runLoop.add(keepAwakeTimer, forMode: .default)
+        Self.logBuffer.append("☀️ keep-awake active — F13 every 3s while unlocked")
+
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)
 
@@ -528,6 +545,7 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             }
         }
         safetyTimer.invalidate()
+        keepAwakeTimer.invalidate()
         // Only reached when keepRunning was set false (stop_server / notification /
         // config restart). If we ever get here unexpectedly, the log shows it.
         Self.logBuffer.append("🔁 run loop exited (keepRunning=false)")
