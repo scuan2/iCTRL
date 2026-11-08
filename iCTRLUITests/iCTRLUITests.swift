@@ -520,38 +520,37 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         runLoop.add(safetyTimer, forMode: .default)
 
         // Keep the gray XCTest idle curtain from returning while Phone Control
-        // is on. A real touch clears it. Reuse the same XCTest touch synthesizer
-        // as normal iCTRL taps, but tap the system-owned home-indicator edge so
-        // the foreground app has no normal control to activate.
+        // is on by tapping the *actual* iCTRL Live Activity control owned by
+        // SpringBoard. Do not fall back to a raw coordinate: a coordinate over
+        // the hardware cutout can still be delivered to the foreground app.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
         keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
         var loggedFirstActivityPulse = false
+        var loggedMissingActivityControl = false
         keepAwakeTimer.setEventHandler {
             guard !LockStateMonitor.shared().isLocked else { return }
             DispatchQueue.main.async {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
-                let bounds = UIScreen.main.bounds
-                let point = CGPoint(x: bounds.midX, y: max(0, bounds.maxY - 1.0))
-                let record = XCSynthesizedEventRecord(name: "Automation Curtain Pulse")
-                let path = XCPointerEventPath(forTouchAt: point, offset: 0.0)
-                path.pressDown(atOffset: 0.0)
-                path.liftUp(atOffset: 0.04)
-                record.add(path)
-                do {
-                    try record.synthesize()
+                let springBoard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+                let heartbeat = springBoard.descendants(matching: .any)
+                    .matching(identifier: "ictrl-heartbeat")
+                    .firstMatch
+                if heartbeat.exists && heartbeat.isHittable {
+                    heartbeat.tap()
                     if !loggedFirstActivityPulse {
                         loggedFirstActivityPulse = true
-                        Self.logBuffer.append("👆 first home-indicator activity pulse delivered")
+                        Self.logBuffer.append("💓 first Dynamic Island heartbeat delivered")
                     }
-                } catch {
-                    Self.logBuffer.append("👆 activity pulse failed — \(error.localizedDescription)")
+                } else if !loggedMissingActivityControl {
+                    loggedMissingActivityControl = true
+                    Self.logBuffer.append("💓 Dynamic Island heartbeat control not found/hittable — no fallback touch sent")
                 }
             }
         }
         keepAwakeTimer.resume()
-        Self.logBuffer.append("👆 activity pulse active — home-indicator XCTest tap every 2s while unlocked")
+        Self.logBuffer.append("💓 activity pulse active — SpringBoard Live Activity control every 2s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)

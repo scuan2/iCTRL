@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -129,6 +130,58 @@ struct PhoneControlWidget: Widget {
     }
 }
 
+@available(iOSApplicationExtension 17.0, *)
+struct PhoneControlLiveActivity: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: PhoneControlActivityAttributes.self) { _ in
+            HStack(spacing: 8) {
+                Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                Text("Phone Control")
+                    .font(.headline)
+                Spacer()
+                heartbeatButton
+            }
+            .padding(.horizontal)
+            .activityBackgroundTint(.black.opacity(0.88))
+            .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { _ in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    Image(systemName: "iphone.gen3.radiowaves.left.and.right")
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    heartbeatButton
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text("Phone Control")
+                        .font(.caption)
+                }
+            } compactLeading: {
+                Image(systemName: "iphone.gen3")
+                    .font(.caption2)
+            } compactTrailing: {
+                heartbeatButton
+            } minimal: {
+                heartbeatButton
+            }
+            .keylineTint(.clear)
+        }
+    }
+
+    private var heartbeatButton: some View {
+        Button(intent: PhoneControlHeartbeatIntent()) {
+            Image(systemName: "circle.fill")
+                .font(.system(size: 6, weight: .regular))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("iCTRL Heartbeat")
+        .accessibilityIdentifier("ictrl-heartbeat")
+    }
+}
+
 @main
 @available(iOSApplicationExtension 27.0, *)
 struct PhoneControlBundle: WidgetBundle {
@@ -136,6 +189,7 @@ struct PhoneControlBundle: WidgetBundle {
         PhoneControlWidget()
         DevVPNWidget()
         PhoneControlControl()
+        PhoneControlLiveActivity()
     }
 }
 
