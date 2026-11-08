@@ -77,9 +77,7 @@ public struct SetPhoneControlIntent: SetValueIntent {
             throw PhoneControlIntentError.failed
         }
 
-        if #available(iOS 18.0, *) {
-            ControlCenter.shared.reloadControls(ofKind: "com.openminis.ictrl.phone-control")
-        }
+        ControlCenter.shared.reloadControls(ofKind: "com.openminis.ictrl.phone-control")
         WidgetCenter.shared.reloadTimelines(ofKind: "com.openminis.ictrl.phone-control-widget")
         return .result()
     }
