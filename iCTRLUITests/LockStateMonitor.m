@@ -2,6 +2,17 @@
 #import <notify.h>
 #import <XCTest/XCTest.h>
 
+@interface XCPointerEventPath : NSObject
+- (instancetype)initForMouseEventsAtLocation:(CGPoint)location;
+- (void)moveMouseToPoint:(CGPoint)point atOffset:(NSTimeInterval)offset duration:(NSTimeInterval)duration;
+@end
+
+@interface XCSynthesizedEventRecord : NSObject
+- (instancetype)initWithName:(NSString *)name;
+- (void)addPointerEventPath:(XCPointerEventPath *)eventPath;
+- (BOOL)synthesizeWithError:(NSError * _Nullable * _Nullable)error;
+@end
+
 @interface XCUIDevice (FBPrivate)
 - (void)pressLockButton;
 @end
@@ -80,6 +91,24 @@
                     userInfo:@{NSLocalizedDescriptionKey: @"Unlock timeout (passcode may be required)"}];
     }
     return NO;
+}
+
+- (nullable NSString *)sendPointerActivityPulse {
+    CGRect b = UIScreen.mainScreen.bounds;
+    CGPoint start = CGPointMake(CGRectGetMidX(b) - 0.5, 20.0);
+    CGPoint end = CGPointMake(CGRectGetMidX(b) + 0.5, 20.0);
+    @try {
+        XCPointerEventPath *path = [[XCPointerEventPath alloc] initForMouseEventsAtLocation:start];
+        if (!path) return @"mouse pointer path unavailable";
+        [path moveMouseToPoint:end atOffset:0.0 duration:0.02];
+        XCSynthesizedEventRecord *record = [[XCSynthesizedEventRecord alloc] initWithName:@"Automation Curtain Hover Pulse"];
+        [record addPointerEventPath:path];
+        NSError *eventError = nil;
+        if ([record synthesizeWithError:&eventError]) return nil;
+        return eventError.localizedDescription ?: @"pointer pulse synthesis failed";
+    } @catch (NSException *exception) {
+        return [NSString stringWithFormat:@"%@: %@", exception.name, exception.reason ?: @""];
+    }
 }
 
 - (void)dealloc {

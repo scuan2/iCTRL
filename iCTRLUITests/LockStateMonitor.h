@@ -11,6 +11,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)lockScreenWithTimeout:(NSTimeInterval)timeout error:(NSError *__autoreleasing _Nullable * _Nullable)error;
 - (BOOL)unlockScreenWithTimeout:(NSTimeInterval)timeout error:(NSError *__autoreleasing _Nullable * _Nullable)error;
 
+/// Sends a tiny XCTest indirect-pointer move without any touch/click.
+/// Returns nil on success or a short error description.
+- (nullable NSString *)sendPointerActivityPulse;
+
 @end
 
 NS_ASSUME_NONNULL_END

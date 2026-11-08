@@ -519,10 +519,9 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         }
         runLoop.add(safetyTimer, forMode: .default)
 
-        // Keep the gray XCTest idle curtain from returning while Phone Control
-        // is on. A real touch clears it. Reuse the same XCTest touch synthesizer
-        // as normal iCTRL taps, but tap the system-owned home-indicator edge so
-        // the foreground app has no normal control to activate.
+        // Candidate: keep the gray XCTest idle curtain from returning with an
+        // indirect-pointer hover instead of a touch. This produces no finger
+        // down/up event for the foreground app.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
         keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
@@ -532,26 +531,16 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
             DispatchQueue.main.async {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
-                let bounds = UIScreen.main.bounds
-                let point = CGPoint(x: bounds.midX, y: max(0, bounds.maxY - 1.0))
-                let record = XCSynthesizedEventRecord(name: "Automation Curtain Pulse")
-                let path = XCPointerEventPath(forTouchAt: point, offset: 0.0)
-                path.pressDown(atOffset: 0.0)
-                path.liftUp(atOffset: 0.04)
-                record.add(path)
-                do {
-                    try record.synthesize()
-                    if !loggedFirstActivityPulse {
-                        loggedFirstActivityPulse = true
-                        Self.logBuffer.append("👆 first home-indicator activity pulse delivered")
-                    }
-                } catch {
-                    Self.logBuffer.append("👆 activity pulse failed — \(error.localizedDescription)")
+                if let error = lockState.sendPointerActivityPulse() {
+                    Self.logBuffer.append("🖱 pointer activity pulse failed — \(error)")
+                } else if !loggedFirstActivityPulse {
+                    loggedFirstActivityPulse = true
+                    Self.logBuffer.append("🖱 first pointer activity pulse delivered")
                 }
             }
         }
         keepAwakeTimer.resume()
-        Self.logBuffer.append("👆 activity pulse active — home-indicator XCTest tap every 2s while unlocked")
+        Self.logBuffer.append("🖱 activity pulse active — XCTest pointer hover every 2s while unlocked")
 
         // Keep the status notification reachable (see startStatusRefresh).
         startStatusRefresh(on: runLoop)
