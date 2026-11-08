@@ -2,7 +2,7 @@ name: Phone Control IPA
 
 on:
   push:
-    branches: [phone-control-widget]
+    branches: [phone-control-widget, heartbeat-hover-candidate]
   workflow_dispatch:
 
 jobs:
