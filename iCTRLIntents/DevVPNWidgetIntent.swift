@@ -17,6 +17,11 @@ public struct RefreshDevVPNWidgetIntent: AppIntent {
     public init() {}
 
     public func perform() async throws -> some IntentResult {
+        // Shortcuts' Set VPN action returns before NetworkExtension always
+        // finishes publishing/removing the utun interface. Give that state a
+        // brief moment to settle so the widget reload reads the real result
+        // instead of the previous state.
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
         WidgetCenter.shared.reloadTimelines(ofKind: "com.openminis.ictrl.dev-vpn-widget")
         return .result()
     }
