@@ -96,12 +96,19 @@ struct PhoneControlWidgetView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
-                Toggle(isOn: entry.running, intent: SetPhoneControlIntent()) {
-                    Text("Phone Control")
+                Button(intent: SetPhoneControlIntent(value: !entry.running)) {
+                    ZStack(alignment: entry.running ? .trailing : .leading) {
+                        Capsule()
+                            .fill(entry.running ? Color.green : Color.secondary.opacity(0.28))
+                            .frame(width: 50, height: 30)
+                        Circle()
+                            .fill(.white)
+                            .frame(width: 26, height: 26)
+                            .padding(2)
+                            .shadow(radius: 1)
+                    }
                 }
-                .labelsHidden()
-                .toggleStyle(.switch)
-                .tint(.green)
+                .buttonStyle(.plain)
             }
         }
         .containerBackground(.fill.tertiary, for: .widget)

@@ -62,6 +62,10 @@ public struct SetPhoneControlIntent: SetValueIntent {
 
     public init() {}
 
+    public init(value: Bool) {
+        self.value = value
+    }
+
     public func perform() async throws -> some IntentResult {
         // Starting XCTest needs UIApplication to launch the runner. Move into
         // the foreground only for ON; stopping an already-running runner remains
