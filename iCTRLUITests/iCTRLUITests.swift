@@ -519,11 +519,11 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
         }
         runLoop.add(safetyTimer, forMode: .default)
 
-        // Keep the gray XCTest idle curtain from returning while Phone Control
-        // is on with the smallest version of the already-proven bottom-edge
-        // pulse: exact screen boundary, 10 ms down-to-up. No move, no gesture,
-        // no fallback path. This deliberately changes only position and hold
-        // time from the known-good home-indicator pulse.
+        // Experimental candidate: send a contact-free digitizer movement.
+        // AutomationModeUI watches accepted type-11 digitizer events, while a
+        // path with no pressDown/liftUp should not create a foreground touch.
+        // Keep the proven cadence and lock guard; this build exists only to
+        // validate whether XCTest can synthesize that no-contact event.
         let keepAwakeQueue = DispatchQueue(label: "ictrl.keepawake", qos: .utility)
         let keepAwakeTimer = DispatchSource.makeTimerSource(queue: keepAwakeQueue)
         keepAwakeTimer.schedule(deadline: .now(), repeating: 2.0, leeway: .milliseconds(150))
@@ -534,20 +534,20 @@ final class iCTRLUITests: XCTestCase, UNUserNotificationCenterDelegate {
                 let lockState = LockStateMonitor.shared()
                 guard !lockState.isLocked else { return }
                 let bounds = UIScreen.main.bounds
-                let point = CGPoint(x: bounds.midX, y: bounds.maxY)
-                let record = XCSynthesizedEventRecord(name: "Automation Curtain Boundary Pulse")
+                let point = CGPoint(x: bounds.midX, y: bounds.midY)
+                let destination = CGPoint(x: point.x + 1.0, y: point.y)
+                let record = XCSynthesizedEventRecord(name: "Automation Curtain No-Contact Digitizer Move")
                 let path = XCPointerEventPath(forTouchAt: point, offset: 0.0)
-                path.pressDown(atOffset: 0.0)
-                path.liftUp(atOffset: 0.01)
+                path.move(to: destination, atOffset: 0.01)
                 record.add(path)
                 do {
                     try record.synthesize()
                     if !loggedFirstActivityPulse {
                         loggedFirstActivityPulse = true
-                        Self.logBuffer.append("👆 first exact-boundary 10ms activity pulse delivered at \(point)")
+                        Self.logBuffer.append("👆 first no-contact digitizer movement delivered at \(point)")
                     }
                 } catch {
-                    Self.logBuffer.append("👆 exact-boundary activity pulse failed — \(error.localizedDescription)")
+                    Self.logBuffer.append("👆 no-contact digitizer movement failed — \(error.localizedDescription)")
                 }
             }
         }
